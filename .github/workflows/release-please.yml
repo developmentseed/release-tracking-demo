@@ -1,0 +1,23 @@
+# Steps 6 + 7: keep a Release PR open with everything merged since the last
+# release; merging that PR tags the release and publishes a GitHub Release.
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          # Must NOT be GITHUB_TOKEN: releases created with GITHUB_TOKEN do not
+          # trigger the `release: published` workflow (release-commenter.yml).
+          token: ${{ secrets.AUTOMATION_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

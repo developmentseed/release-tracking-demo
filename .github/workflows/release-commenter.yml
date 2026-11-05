@@ -1,0 +1,20 @@
+# Step 8: when a release is published, walk the commits since the previous
+# release, find their PRs and the issues those PRs close, then comment on and
+# label each one "released in vX.Y.Z".
+name: Label released issues
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  label-released:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: apexskier/github-release-commenter@v1
+        with:
+          # Must NOT be GITHUB_TOKEN: labels added with GITHUB_TOKEN do not
+          # trigger the `issues: labeled` job in project-status.yml.
+          GITHUB_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
+          comment-template: "Released in {release_link}."
+          label-template: "released in {release_tag}"

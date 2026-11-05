@@ -1,0 +1,75 @@
+# Moves issues across the project board's Status column:
+#   issue opened/reopened              -> Todo         (and adds it to the board)
+#   PR opened that says "Closes #N"    -> In Progress
+#   issue closed as completed          -> Done         (step 5)
+#   issue labeled "released ..."       -> Released     (step 9)
+name: Project status
+
+on:
+  issues:
+    types: [opened, reopened, closed, labeled]
+  pull_request:
+    types: [opened, reopened, edited, ready_for_review]
+
+permissions:
+  contents: read
+
+env:
+  GH_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
+  PROJECT_URL: ${{ vars.PROJECT_URL }}
+
+jobs:
+  todo:
+    if: github.event_name == 'issues' && (github.event.action == 'opened' || github.event.action == 'reopened')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/add-to-project@v1.0.2
+        with:
+          project-url: ${{ vars.PROJECT_URL }}
+          github-token: ${{ secrets.AUTOMATION_TOKEN }}
+      - run: scripts/set-status.sh "$ISSUE_ID" "Todo"
+        env:
+          ISSUE_ID: ${{ github.event.issue.node_id }}
+
+  in-progress:
+    if: >-
+      github.event_name == 'pull_request'
+      && github.event.pull_request.state == 'open'
+      && !github.event.pull_request.draft
+      && !startsWith(github.head_ref, 'release-please--')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Move issues this PR closes to In Progress
+        env:
+          PR_ID: ${{ github.event.pull_request.node_id }}
+        run: |
+          # shellcheck disable=SC2016
+          gh api graphql -f id="$PR_ID" -f query='
+            query($id: ID!) {
+              node(id: $id) {
+                ... on PullRequest { closingIssuesReferences(first: 25) { nodes { id } } }
+              }
+            }' --jq '.data.node.closingIssuesReferences.nodes[].id' |
+          while read -r issue_id; do
+            scripts/set-status.sh "$issue_id" "In Progress"
+          done
+
+  done:
+    if: github.event_name == 'issues' && github.event.action == 'closed' && github.event.issue.state_reason == 'completed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: scripts/set-status.sh "$ISSUE_ID" "Done"
+        env:
+          ISSUE_ID: ${{ github.event.issue.node_id }}
+
+  released:
+    if: github.event_name == 'issues' && github.event.action == 'labeled' && startsWith(github.event.label.name, 'released')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: scripts/set-status.sh "$ISSUE_ID" "Released"
+        env:
+          ISSUE_ID: ${{ github.event.issue.node_id }}
