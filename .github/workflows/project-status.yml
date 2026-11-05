@@ -1,15 +1,11 @@
-# Moves issues across the project board's Status column:
-#   issue opened/reopened              -> Todo         (and adds it to the board)
-#   PR opened that says "Closes #N"    -> In Progress
-#   issue closed as completed          -> Done         (step 5)
-#   issue labeled "released ..."       -> Released     (step 9)
+# Step 9: issue labeled "released ..." -> Released on the project board.
+# The project's built-in workflows do the other moves (see README); none of
+# them can react to a label, so this one needs Actions.
 name: Project status
 
 on:
   issues:
-    types: [opened, reopened, closed, labeled]
-  pull_request:
-    types: [opened, reopened, edited, ready_for_review]
+    types: [labeled]
 
 permissions:
   contents: read
@@ -20,76 +16,6 @@ env:
   PROJECT_URL: ${{ vars.PROJECT_URL }}
 
 jobs:
-  todo:
-    if: github.event_name == 'issues' && (github.event.action == 'opened' || github.event.action == 'reopened')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      # Uses ds-release-bot if its org secrets are visible, else the AUTOMATION_TOKEN PAT.
-      - id: app-token
-        if: env.APP_ID != ''
-        uses: actions/create-github-app-token@v2
-        with:
-          app-id: ${{ secrets.DS_RELEASE_BOT_ID }}
-          private-key: ${{ secrets.DS_RELEASE_BOT_PRIVATE_KEY }}
-      - uses: actions/add-to-project@v1.0.2
-        with:
-          project-url: ${{ vars.PROJECT_URL }}
-          github-token: ${{ steps.app-token.outputs.token || secrets.AUTOMATION_TOKEN }}
-      - run: scripts/set-status.sh "$ISSUE_ID" "Todo"
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.AUTOMATION_TOKEN }}
-          ISSUE_ID: ${{ github.event.issue.node_id }}
-
-  in-progress:
-    if: >-
-      github.event_name == 'pull_request'
-      && github.event.pull_request.state == 'open'
-      && !github.event.pull_request.draft
-      && !startsWith(github.head_ref, 'release-please--')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      # Uses ds-release-bot if its org secrets are visible, else the AUTOMATION_TOKEN PAT.
-      - id: app-token
-        if: env.APP_ID != ''
-        uses: actions/create-github-app-token@v2
-        with:
-          app-id: ${{ secrets.DS_RELEASE_BOT_ID }}
-          private-key: ${{ secrets.DS_RELEASE_BOT_PRIVATE_KEY }}
-      - name: Move issues this PR closes to In Progress
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.AUTOMATION_TOKEN }}
-          PR_ID: ${{ github.event.pull_request.node_id }}
-        run: |
-          # shellcheck disable=SC2016
-          gh api graphql -f id="$PR_ID" -f query='
-            query($id: ID!) {
-              node(id: $id) {
-                ... on PullRequest { closingIssuesReferences(first: 25) { nodes { id } } }
-              }
-            }' --jq '.data.node.closingIssuesReferences.nodes[].id' |
-          while read -r issue_id; do
-            scripts/set-status.sh "$issue_id" "In Progress"
-          done
-
-  done:
-    if: github.event_name == 'issues' && github.event.action == 'closed' && github.event.issue.state_reason == 'completed'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      # Uses ds-release-bot if its org secrets are visible, else the AUTOMATION_TOKEN PAT.
-      - id: app-token
-        if: env.APP_ID != ''
-        uses: actions/create-github-app-token@v2
-        with:
-          app-id: ${{ secrets.DS_RELEASE_BOT_ID }}
-          private-key: ${{ secrets.DS_RELEASE_BOT_PRIVATE_KEY }}
-      - run: scripts/set-status.sh "$ISSUE_ID" "Done"
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.AUTOMATION_TOKEN }}
-          ISSUE_ID: ${{ github.event.issue.node_id }}
-
   released:
     if: github.event_name == 'issues' && github.event.action == 'labeled' && startsWith(github.event.label.name, 'released')
     runs-on: ubuntu-latest

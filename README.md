@@ -5,9 +5,9 @@ Shows how a GitHub Projects board can tell you, at a glance, which issues are
 
 ```mermaid
 flowchart LR
-  A[Issue opened] -->|project-status.yml| T[Todo]
-  B[PR opened<br/>'Closes #N'] -->|project-status.yml| P[In Progress]
-  C[PR merged → issue closed] -->|project-status.yml| D[Done]
+  A[Issue opened] -->|project workflow| T[Todo]
+  B[PR opened<br/>'Closes #N'] -->|project workflow| P[In Progress]
+  C[PR merged → issue closed] -->|project workflow| D[Done]
   C -->|release-please.yml| R[Release PR updated]
   R -->|merge Release PR| V[GitHub Release vX.Y.Z]
   V -->|release-commenter.yml| L[Issue labeled<br/>'released in vX.Y.Z']
@@ -23,7 +23,7 @@ The **Done** column is the list of merged-but-unreleased work. The open
 | --- | --- |
 | `.github/workflows/release-please.yml` | Keeps a Release PR open; merging it tags and publishes a release |
 | `.github/workflows/release-commenter.yml` | On release, labels each shipped issue `released in vX.Y.Z` |
-| `.github/workflows/project-status.yml` | Moves cards: Todo → In Progress → Done → Released |
+| `.github/workflows/project-status.yml` | Moves released issues to Released (built-in project workflows do the rest) |
 | `scripts/set-status.sh` | Sets an issue's Status on the board (user or org projects) |
 | `scripts/setup.sh` | Re-runnable bootstrap with the `gh` CLI |
 | `scripts/check-app.sh` | Read-only check that `ds-release-bot` is ready for this repo |
@@ -61,6 +61,11 @@ to `AUTOMATION_TOKEN` otherwise.
 **Finish in the browser** (the API can't do these):
 - Project settings → **Status** field → add an option named `Released`.
 - Switch the view to **Board** layout.
+- Project → **Workflows**, enable:
+  - **Auto-add to project**: filter `repo:<org>/release-tracking-demo is:issue`.
+  - **Item added to project** → set Status to `Todo`.
+  - **Pull request linked to issue** → set Status to `In Progress`.
+  - **Item closed** → set Status to `Done`.
 
 ## Run the demo
 
@@ -90,11 +95,9 @@ a minute: release → label → status is three workflow runs in a row.
 - **Single-package only.** The commenter compares against the previous
   release, which doesn't work well with Release Please monorepo per-component
   tags or out-of-order patch releases.
-- **Forked PRs** don't get secrets, so the In Progress move won't run for
-  them. Fine for a demo; for public repos consider a GitHub App and
-  `pull_request_target` with care.
-- **Built-in project workflows.** The project's own "Item closed" workflow also
-  sets Done, which is harmless. Turn it off if you want this repo to be the
-  only thing moving cards.
+- **Built-in workflows vs. Actions.** The project's built-in workflows add
+  issues and set Todo, In Progress and Done without any token. None of them
+  can react to a label, so `project-status.yml` does only the Released move.
+  "Item closed" also marks issues closed as *not planned* as Done.
 - **Pin actions.** Third-party actions are referenced by tag for readability;
   pin them to commit SHAs for production use.

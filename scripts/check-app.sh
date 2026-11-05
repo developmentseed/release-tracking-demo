@@ -59,6 +59,17 @@ if install=$(gh api "orgs/$org/installations" --paginate \
     fail "not installed → https://github.com/apps/$slug/installations/new"
   elif [[ -n "$suspended" ]]; then
     fail "installation is suspended → https://github.com/organizations/$org/settings/installations/$install_id"
+  fi
+  # The App can request a permission the org never approved; tokens only get what the installation granted.
+  if [[ -n "$install_id" ]]; then
+    for perm in contents issues pull_requests organization_projects; do
+      have=$(gh api "orgs/$org/installations" --paginate --jq ".installations[] | select(.app_slug == \"$slug\") | .permissions.$perm // \"none\"")
+      [[ "$have" == "write" || "$have" == "admin" ]] \
+        || fail "installation grants $perm: $have (approve the pending permission request) → https://github.com/organizations/$org/settings/installations/$install_id"
+    done
+  fi
+  if [[ -z "$install_id" || -n "$suspended" ]]; then
+    :
   elif [[ "$selection" == "all" ]]; then
     pass "installed on all repositories (covers $repo)"
   else
