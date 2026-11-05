@@ -14,10 +14,16 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
+      # Uses the GitHub App if APP_ID is set, otherwise the AUTOMATION_TOKEN PAT.
+      # Never GITHUB_TOKEN: releases it creates don't trigger release-commenter.yml.
+      - id: app-token
+        if: vars.APP_ID != ''
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
       - uses: googleapis/release-please-action@v4
         with:
-          # Must NOT be GITHUB_TOKEN: releases created with GITHUB_TOKEN do not
-          # trigger the `release: published` workflow (release-commenter.yml).
-          token: ${{ secrets.AUTOMATION_TOKEN }}
+          token: ${{ steps.app-token.outputs.token || secrets.AUTOMATION_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json

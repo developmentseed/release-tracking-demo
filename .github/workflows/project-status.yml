@@ -15,7 +15,6 @@ permissions:
   contents: read
 
 env:
-  GH_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
   PROJECT_URL: ${{ vars.PROJECT_URL }}
 
 jobs:
@@ -24,12 +23,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Uses the GitHub App if APP_ID is set, otherwise the AUTOMATION_TOKEN PAT.
+      - id: app-token
+        if: vars.APP_ID != ''
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
       - uses: actions/add-to-project@v1.0.2
         with:
           project-url: ${{ vars.PROJECT_URL }}
-          github-token: ${{ secrets.AUTOMATION_TOKEN }}
+          github-token: ${{ steps.app-token.outputs.token || secrets.AUTOMATION_TOKEN }}
       - run: scripts/set-status.sh "$ISSUE_ID" "Todo"
         env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.AUTOMATION_TOKEN }}
           ISSUE_ID: ${{ github.event.issue.node_id }}
 
   in-progress:
@@ -41,8 +48,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Uses the GitHub App if APP_ID is set, otherwise the AUTOMATION_TOKEN PAT.
+      - id: app-token
+        if: vars.APP_ID != ''
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
       - name: Move issues this PR closes to In Progress
         env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.AUTOMATION_TOKEN }}
           PR_ID: ${{ github.event.pull_request.node_id }}
         run: |
           # shellcheck disable=SC2016
@@ -61,8 +76,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Uses the GitHub App if APP_ID is set, otherwise the AUTOMATION_TOKEN PAT.
+      - id: app-token
+        if: vars.APP_ID != ''
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
       - run: scripts/set-status.sh "$ISSUE_ID" "Done"
         env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.AUTOMATION_TOKEN }}
           ISSUE_ID: ${{ github.event.issue.node_id }}
 
   released:
@@ -70,6 +93,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Uses the GitHub App if APP_ID is set, otherwise the AUTOMATION_TOKEN PAT.
+      - id: app-token
+        if: vars.APP_ID != ''
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
       - run: scripts/set-status.sh "$ISSUE_ID" "Released"
         env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.AUTOMATION_TOKEN }}
           ISSUE_ID: ${{ github.event.issue.node_id }}

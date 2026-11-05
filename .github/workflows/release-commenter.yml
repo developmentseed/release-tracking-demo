@@ -11,10 +11,15 @@ jobs:
   label-released:
     runs-on: ubuntu-latest
     steps:
+      # Never GITHUB_TOKEN: labels it adds don't trigger project-status.yml.
+      - id: app-token
+        if: vars.APP_ID != ''
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
       - uses: apexskier/github-release-commenter@v1
         with:
-          # Must NOT be GITHUB_TOKEN: labels added with GITHUB_TOKEN do not
-          # trigger the `issues: labeled` job in project-status.yml.
-          GITHUB_TOKEN: ${{ secrets.AUTOMATION_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token || secrets.AUTOMATION_TOKEN }}
           comment-template: "Released in {release_link}."
           label-template: "released in {release_tag}"

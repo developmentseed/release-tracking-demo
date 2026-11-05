@@ -25,26 +25,38 @@ The **Done** column is the list of merged-but-unreleased work. The open
 | `.github/workflows/release-commenter.yml` | On release, labels each shipped issue `released in vX.Y.Z` |
 | `.github/workflows/project-status.yml` | Moves cards: Todo → In Progress → Done → Released |
 | `scripts/set-status.sh` | Sets an issue's Status on the board (user or org projects) |
-| `scripts/setup.sh` | One-time bootstrap with the `gh` CLI |
+| `scripts/setup.sh` | Re-runnable bootstrap with the `gh` CLI |
+| `scripts/create-app.sh` | Creates the GitHub App (org owners only) |
 | `scripts/demo.sh` | Walks one issue through the lifecycle |
 | `release-please-config.json`, `.release-please-manifest.json`, `version.txt`, `CHANGELOG.md` | Release Please state (`simple` release type) |
 
 ## Setup
 
-You need the [GitHub CLI](https://cli.github.com) and `jq`.
+You need the [GitHub CLI](https://cli.github.com), `jq`, and (for App auth) `python3`.
 
-1. **Give gh the project scope:** `gh auth refresh -s project`
-2. **Create a token for the workflows.** For a personal account, use a
-   *classic* PAT with `repo` and `project` scopes (fine-grained PATs can't reach
-   user-owned projects). For an org, prefer a GitHub App installation token with
-   Contents, Issues, Pull requests (read/write) and org Projects (read/write).
-3. **Bootstrap:** `scripts/setup.sh <your-user-or-org> [repo-name]`. It creates
-   the repo and project, sets the `PROJECT_URL` variable and `AUTOMATION_TOKEN`
-   secret (it prompts you to paste the token), pushes, and cuts a `v0.1.0`
-   baseline release.
-4. **Finish in the browser** (the API can't do these):
-   - Project settings → **Status** field → add an option named `Released`.
-   - Switch the view to **Board** layout.
+```bash
+gh auth refresh -s project
+scripts/setup.sh <owner> [--repo NAME] [--public] [--auth app|pat]
+```
+
+The script is safe to re-run: it reuses an existing repo, board, and credentials.
+
+**Credentials.** The workflows can't use `GITHUB_TOKEN` (it can't touch
+Projects, and events it creates don't trigger other workflows), so pick one:
+
+- `--auth app` (default for organizations): `scripts/create-app.sh` creates a
+  GitHub App from a manifest, stores `APP_ID` and `APP_PRIVATE_KEY` in the repo,
+  and opens its install page. Requires an **organization**: GitHub Apps can't
+  access Projects owned by a personal account.
+- `--auth pat` (default for personal accounts): paste a classic PAT with `repo`
+  and `project` scopes; stored as `AUTOMATION_TOKEN`.
+
+Every workflow mints an App token when `APP_ID` is set and falls back to
+`AUTOMATION_TOKEN` otherwise.
+
+**Finish in the browser** (the API can't do these):
+- Project settings → **Status** field → add an option named `Released`.
+- Switch the view to **Board** layout.
 
 ## Run the demo
 
@@ -59,10 +71,10 @@ a minute: release → label → status is three workflow runs in a row.
 
 ## Why it's wired this way (gotchas)
 
-- **One token, not `GITHUB_TOKEN`.** Events created with the default
-  `GITHUB_TOKEN` don't trigger other workflows. If Release Please used it, the
-  release wouldn't trigger `release-commenter.yml`. If the commenter used it,
-  the label wouldn't trigger the `released` job. Both use `AUTOMATION_TOKEN`.
+- **Never `GITHUB_TOKEN`.** Events created with the default `GITHUB_TOKEN`
+  don't trigger other workflows. If Release Please used it, the release
+  wouldn't trigger `release-commenter.yml`. If the commenter used it, the label
+  wouldn't trigger the `released` job.
 - **Conventional commits matter.** Release Please only cuts a release for
   `feat:`, `fix:` and similar commit types. The repo is set to squash-merge
   with the PR title as the commit title, so the **PR title** must be
