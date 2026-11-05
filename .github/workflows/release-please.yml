@@ -10,18 +10,22 @@ permissions:
   contents: write
   pull-requests: write
 
+# `secrets` can't be used in `if:`; expose the App ID via env so steps can test it.
+env:
+  APP_ID: ${{ secrets.DS_RELEASE_BOT_ID }}
+
 jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
-      # Uses the GitHub App if APP_ID is set, otherwise the AUTOMATION_TOKEN PAT.
+      # Uses ds-release-bot if its org secrets are visible, else the AUTOMATION_TOKEN PAT.
       # Never GITHUB_TOKEN: releases it creates don't trigger release-commenter.yml.
       - id: app-token
-        if: vars.APP_ID != ''
+        if: env.APP_ID != ''
         uses: actions/create-github-app-token@v2
         with:
-          app-id: ${{ vars.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.DS_RELEASE_BOT_ID }}
+          private-key: ${{ secrets.DS_RELEASE_BOT_PRIVATE_KEY }}
       - uses: googleapis/release-please-action@v4
         with:
           token: ${{ steps.app-token.outputs.token || secrets.AUTOMATION_TOKEN }}

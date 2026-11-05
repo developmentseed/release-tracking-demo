@@ -26,33 +26,37 @@ The **Done** column is the list of merged-but-unreleased work. The open
 | `.github/workflows/project-status.yml` | Moves cards: Todo → In Progress → Done → Released |
 | `scripts/set-status.sh` | Sets an issue's Status on the board (user or org projects) |
 | `scripts/setup.sh` | Re-runnable bootstrap with the `gh` CLI |
-| `scripts/create-app.sh` | Creates the GitHub App (org owners only) |
+| `scripts/check-app.sh` | Read-only check that `ds-release-bot` is ready for this repo |
 | `scripts/demo.sh` | Walks one issue through the lifecycle |
 | `release-please-config.json`, `.release-please-manifest.json`, `version.txt`, `CHANGELOG.md` | Release Please state (`simple` release type) |
 
 ## Setup
 
-You need the [GitHub CLI](https://cli.github.com), `jq`, and (for App auth) `python3`.
+You need the [GitHub CLI](https://cli.github.com) and `jq`.
 
 ```bash
 gh auth refresh -s project
-scripts/setup.sh <owner> [--repo NAME] [--public] [--auth app|pat]
+scripts/check-app.sh developmentseed ds-release-bot release-tracking-demo   # optional, read-only
+scripts/setup.sh developmentseed --public --app ds-release-bot
 ```
 
-The script is safe to re-run: it reuses an existing repo, board, and credentials.
+`setup.sh` is idempotent: each step checks GitHub's current state, so re-run it
+after an interruption and it only does what's still missing.
 
 **Credentials.** The workflows can't use `GITHUB_TOKEN` (it can't touch
-Projects, and events it creates don't trigger other workflows), so pick one:
+Projects, and events it creates don't trigger other workflows). They use:
 
-- `--auth app` (default for organizations): `scripts/create-app.sh` creates a
-  GitHub App from a manifest, stores `APP_ID` and `APP_PRIVATE_KEY` in the repo,
-  and opens its install page. Requires an **organization**: GitHub Apps can't
-  access Projects owned by a personal account.
-- `--auth pat` (default for personal accounts): paste a classic PAT with `repo`
-  and `project` scopes; stored as `AUTOMATION_TOKEN`.
+- **`ds-release-bot`** (preferred), via the org secrets `DS_RELEASE_BOT_ID` and
+  `DS_RELEASE_BOT_PRIVATE_KEY`. The App needs read/write on Contents, Issues,
+  Pull requests and **Organization → Projects**, must be installed on the repo,
+  and both org secrets must be available to the repo. `check-app.sh` checks all
+  of this; `setup.sh --app` checks it and points you at anything missing.
+- **Otherwise a classic PAT** with `repo` + `project` scopes, stored as the repo
+  secret `AUTOMATION_TOKEN` (`setup.sh` without `--app` prompts for it). This is
+  the only option for a board owned by a personal account.
 
-Every workflow mints an App token when `APP_ID` is set and falls back to
-`AUTOMATION_TOKEN` otherwise.
+Every workflow uses the App when `DS_RELEASE_BOT_ID` is visible and falls back
+to `AUTOMATION_TOKEN` otherwise.
 
 **Finish in the browser** (the API can't do these):
 - Project settings → **Status** field → add an option named `Released`.

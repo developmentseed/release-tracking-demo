@@ -14,7 +14,9 @@ on:
 permissions:
   contents: read
 
+# `secrets` can't be used in `if:`; expose the App ID via env so steps can test it.
 env:
+  APP_ID: ${{ secrets.DS_RELEASE_BOT_ID }}
   PROJECT_URL: ${{ vars.PROJECT_URL }}
 
 jobs:
@@ -23,13 +25,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # Uses the GitHub App if APP_ID is set, otherwise the AUTOMATION_TOKEN PAT.
+      # Uses ds-release-bot if its org secrets are visible, else the AUTOMATION_TOKEN PAT.
       - id: app-token
-        if: vars.APP_ID != ''
+        if: env.APP_ID != ''
         uses: actions/create-github-app-token@v2
         with:
-          app-id: ${{ vars.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.DS_RELEASE_BOT_ID }}
+          private-key: ${{ secrets.DS_RELEASE_BOT_PRIVATE_KEY }}
       - uses: actions/add-to-project@v1.0.2
         with:
           project-url: ${{ vars.PROJECT_URL }}
@@ -48,13 +50,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # Uses the GitHub App if APP_ID is set, otherwise the AUTOMATION_TOKEN PAT.
+      # Uses ds-release-bot if its org secrets are visible, else the AUTOMATION_TOKEN PAT.
       - id: app-token
-        if: vars.APP_ID != ''
+        if: env.APP_ID != ''
         uses: actions/create-github-app-token@v2
         with:
-          app-id: ${{ vars.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.DS_RELEASE_BOT_ID }}
+          private-key: ${{ secrets.DS_RELEASE_BOT_PRIVATE_KEY }}
       - name: Move issues this PR closes to In Progress
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.AUTOMATION_TOKEN }}
@@ -76,13 +78,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # Uses the GitHub App if APP_ID is set, otherwise the AUTOMATION_TOKEN PAT.
+      # Uses ds-release-bot if its org secrets are visible, else the AUTOMATION_TOKEN PAT.
       - id: app-token
-        if: vars.APP_ID != ''
+        if: env.APP_ID != ''
         uses: actions/create-github-app-token@v2
         with:
-          app-id: ${{ vars.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.DS_RELEASE_BOT_ID }}
+          private-key: ${{ secrets.DS_RELEASE_BOT_PRIVATE_KEY }}
       - run: scripts/set-status.sh "$ISSUE_ID" "Done"
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.AUTOMATION_TOKEN }}
@@ -93,13 +95,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # Uses the GitHub App if APP_ID is set, otherwise the AUTOMATION_TOKEN PAT.
+      # Uses ds-release-bot if its org secrets are visible, else the AUTOMATION_TOKEN PAT.
       - id: app-token
-        if: vars.APP_ID != ''
+        if: env.APP_ID != ''
         uses: actions/create-github-app-token@v2
         with:
-          app-id: ${{ vars.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.DS_RELEASE_BOT_ID }}
+          private-key: ${{ secrets.DS_RELEASE_BOT_PRIVATE_KEY }}
       - run: scripts/set-status.sh "$ISSUE_ID" "Released"
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.AUTOMATION_TOKEN }}

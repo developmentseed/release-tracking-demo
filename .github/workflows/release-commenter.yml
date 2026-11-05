@@ -7,17 +7,21 @@ on:
   release:
     types: [published]
 
+# `secrets` can't be used in `if:`; expose the App ID via env so steps can test it.
+env:
+  APP_ID: ${{ secrets.DS_RELEASE_BOT_ID }}
+
 jobs:
   label-released:
     runs-on: ubuntu-latest
     steps:
       # Never GITHUB_TOKEN: labels it adds don't trigger project-status.yml.
       - id: app-token
-        if: vars.APP_ID != ''
+        if: env.APP_ID != ''
         uses: actions/create-github-app-token@v2
         with:
-          app-id: ${{ vars.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.DS_RELEASE_BOT_ID }}
+          private-key: ${{ secrets.DS_RELEASE_BOT_PRIVATE_KEY }}
       - uses: apexskier/github-release-commenter@v1
         with:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token || secrets.AUTOMATION_TOKEN }}
